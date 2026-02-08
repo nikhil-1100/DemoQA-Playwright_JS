@@ -35,53 +35,53 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 18
-        cache: 'npm'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
-    - name: Run Playwright tests
-      run: |
-        # 1. Handle browser selection
-        BROWSER_FLAG=""
-        if [ "${{ github.event.inputs.browser || 'all' }}" != "all" ]; then
-          BROWSER_FLAG="--project=${{ github.event.inputs.browser }}"
-        fi
+      - name: Run Playwright tests
+        run: |
+          # 1. Handle browser selection logic
+          BROWSER_FLAG=""
+          if [ "${{ github.event.inputs.browser || 'all' }}" != "all" ]; then
+            BROWSER_FLAG="--project=${{ github.event.inputs.browser }}"
+          fi
 
-        # 2. Handle parallelism (Playwright uses --fully-parallel or --no-fully-parallel)
-        PARALLEL_FLAG="--fully-parallel"
-        if [ "${{ github.event.inputs.parallel }}" == "false" ]; then
-          PARALLEL_FLAG="--no-fully-parallel"
-        fi
+          # 2. Handle parallelism logic (CLI requires --no-fully-parallel to disable)
+          PARALLEL_FLAG="--fully-parallel"
+          if [ "${{ github.event.inputs.parallel }}" == "false" ]; then
+            PARALLEL_FLAG="--no-fully-parallel"
+          fi
 
-        # 3. Handle Workers
-        WORKER_COUNT="${{ github.event.inputs.workers || 3 }}"
+          # 3. Execute Command
+          npx playwright test $BROWSER_FLAG $PARALLEL_FLAG --workers=${{ github.event.inputs.workers || 3 }}
+        env:
+          CI: true
+          BASE_URL: ${{ secrets.BASE_URL }}
+          USER_NAME: ${{ secrets.USER_NAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
 
-        # Execute
-        npx playwright test $BROWSER_FLAG $PARALLEL_FLAG --workers=$WORKER_COUNT
-      env:
-        CI: true
+      - name: Upload Shareable Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-single-file
+          path: testAssets/artifacts/allure-report/index.html
+          retention-days: 30
 
-    - name: Upload Shareable Allure Report
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: allure-report-single-file
-        path: testAssets/artifacts/allure-report/index.html
-        retention-days: 30
-
-    - name: Upload Traces and Videos (On Failure)
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: playwright-artifacts
-        path: testAssets/artifacts/
-        retention-days: 7
+      - name: Upload Failure Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: testAssets/artifacts/test-results/
+          retention-days: 7
