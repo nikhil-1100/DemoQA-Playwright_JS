@@ -2,30 +2,22 @@ name: Playwright Tests
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
     inputs:
       browser:
-        description: 'Select Browser (Default: all)'
+        description: 'Select Browser'
         required: true
         default: 'all'
         type: choice
-        options:
-          - all
-          - chromium
-          - firefox
-          - webkit
+        options: [all, chromium, firefox, webkit]
       parallel:
-        description: 'Run in Parallel?'
+        description: 'Parallel execution'
         required: true
         default: 'true'
         type: choice
-        options:
-          - 'true'
-          - 'false'
+        options: ['true', 'false']
       workers:
-        description: 'Number of Workers'
+        description: 'Workers count'
         required: true
         default: '3'
         type: string
@@ -35,9 +27,11 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
@@ -50,25 +44,38 @@ jobs:
 
       - name: Run Playwright tests
         run: |
-          # 1. Handle browser selection logic
+          # 1. Parse the multi-line secret 'DEMOQA' into individual variables
+          echo "Processing multi-line secret..."
+          echo "${{ secrets.DEMOQA }}" | while read -r line; do
+            if [[ ! -z "$line" && "$line" == *"="* ]]; then
+              # Remove spaces and quotes (single and double)
+              clean_line=$(echo "$line" | tr -d '[:space:]' | tr -d "'" | tr -d '"')
+              echo "$clean_line" >> $GITHUB_ENV
+            fi
+          done
+
+          # 2. Debugging: Verify variables are loaded (values will be masked as ***)
+          echo "Verifying environment variables..."
+          echo "BASE_URL is set: ${BASE_URL:+yes}"
+          echo "APP_USERNAME is set: ${APP_USERNAME:+yes}"
+          echo "APP_PASSWORD is set: ${APP_PASSWORD:+yes}"
+
+          # 3. Handle browser selection
           BROWSER_FLAG=""
           if [ "${{ github.event.inputs.browser || 'all' }}" != "all" ]; then
             BROWSER_FLAG="--project=${{ github.event.inputs.browser }}"
           fi
 
-          # 2. Handle parallelism logic (CLI requires --no-fully-parallel to disable)
+          # 4. Handle parallelism
           PARALLEL_FLAG="--fully-parallel"
           if [ "${{ github.event.inputs.parallel }}" == "false" ]; then
             PARALLEL_FLAG="--no-fully-parallel"
           fi
 
-          # 3. Execute Command
+          # 5. Execute Command
           npx playwright test $BROWSER_FLAG $PARALLEL_FLAG --workers=${{ github.event.inputs.workers || 3 }}
         env:
           CI: true
-          BASE_URL: ${{ secrets.BASE_URL }}
-          USER_NAME: ${{ secrets.USER_NAME }}
-          PASSWORD: ${{ secrets.PASSWORD }}
 
       - name: Upload Shareable Allure Report
         if: always()
@@ -77,11 +84,3 @@ jobs:
           name: allure-report-single-file
           path: testAssets/artifacts/allure-report/index.html
           retention-days: 30
-
-      - name: Upload Failure Artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-test-results
-          path: testAssets/artifacts/test-results/
-          retention-days: 7
