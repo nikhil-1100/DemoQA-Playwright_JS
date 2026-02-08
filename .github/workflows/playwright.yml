@@ -1,9 +1,13 @@
 name: Playwright Tests
 on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
     inputs:
       browser:
-        description: 'Select Browser'
+        description: 'Select Browser (Default: all)'
         required: true
         default: 'all'
         type: choice
@@ -21,7 +25,7 @@ on:
           - 'true'
           - 'false'
       workers:
-        description: 'Number of Workers (e.g., 1, 2, 5)'
+        description: 'Number of Workers'
         required: true
         default: '3'
         type: string
@@ -32,6 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
     - uses: actions/setup-node@v4
       with:
         node-version: 18
@@ -45,22 +50,23 @@ jobs:
 
     - name: Run Playwright tests
       run: |
-        # Logic to handle browser selection
+        # 1. Handle browser selection
         BROWSER_FLAG=""
-        if [ "${{ github.event.inputs.browser }}" != "all" ]; then
+        if [ "${{ github.event.inputs.browser || 'all' }}" != "all" ]; then
           BROWSER_FLAG="--project=${{ github.event.inputs.browser }}"
         fi
 
-        # Logic to handle parallelism
-        PARALLEL_FLAG=""
+        # 2. Handle parallelism (Playwright uses --fully-parallel or --no-fully-parallel)
+        PARALLEL_FLAG="--fully-parallel"
         if [ "${{ github.event.inputs.parallel }}" == "false" ]; then
-          PARALLEL_FLAG="--fully-parallel=false"
-        else
-          PARALLEL_FLAG="--fully-parallel=true"
+          PARALLEL_FLAG="--no-fully-parallel"
         fi
 
-        # Execute Command
-        npx playwright test $BROWSER_FLAG $PARALLEL_FLAG --workers=${{ github.event.inputs.workers }}
+        # 3. Handle Workers
+        WORKER_COUNT="${{ github.event.inputs.workers || 3 }}"
+
+        # Execute
+        npx playwright test $BROWSER_FLAG $PARALLEL_FLAG --workers=$WORKER_COUNT
       env:
         CI: true
 
@@ -70,3 +76,12 @@ jobs:
       with:
         name: allure-report-single-file
         path: testAssets/artifacts/allure-report/index.html
+        retention-days: 30
+
+    - name: Upload Traces and Videos (On Failure)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-artifacts
+        path: testAssets/artifacts/
+        retention-days: 7
