@@ -1,0 +1,12 @@
+{
+  "urls": {
+    "DemoQA": "https://demoqa.com/"
+    
+  },
+  "timeouts": {
+    "min": 2000,
+    "medium": 5000,
+    "max": 10000,
+    "long": 20000
+  }
+}

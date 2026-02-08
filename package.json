@@ -1,0 +1,40 @@
+{
+  "name": "playwright-assessment",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright automation framework using POM, XPath, env variables, and Allure reporting",
+  "author": "",
+  "license": "ISC",
+
+  "scripts": {
+    "test": "playwright test",
+
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+
+    "test:headless": "playwright test --project=chromium --headless",
+    "test:crossbrowser:headless": "playwright test --headless",
+
+    "report": "playwright show-report",
+
+    "allure:combine": "allure generate testAssets/artifacts/allure-results -o testAssets/artifacts/allure-report",
+
+    "allure:open": "allure open testAssets/artifacts/allure-report",
+
+    "test:with-report": "npm run test && npm run allure:combine",
+    "posttest": "npm run allure:combine"
+  },
+
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^20.11.30",
+    "allure-commandline": "^2.25.0",
+    "allure-playwright": "^3.0.0",
+    "allure-single-html-file-js": "^0.0.6"
+  },
+
+  "dependencies": {
+    "dotenv": "^17.2.4"
+  }
+}
